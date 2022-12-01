@@ -56,7 +56,7 @@ func TransformToMapping(
 	mapping := map[string]*Value{}
 
 	varargs := []any{}
-	kwargs := map[string]any{}
+	kwargs := NewDict()
 
 	allKnownArgNames := []string{}
 	allKnownArgNames = append(allKnownArgNames, argNames...)
@@ -93,7 +93,7 @@ func TransformToMapping(
 			mapping[argName] = value
 		} else {
 			if activateKwargs {
-				kwargs[argName] = value.Interface()
+				kwargs.Set(AsValue(argName), value)
 			} else {
 				return nil, errors.Errorf(`got an unexpected keyword argument: '%v'`, argName)
 			}

@@ -357,6 +357,15 @@ func (v *Value) Len() int {
 		runes := []rune(v.getResolvedValue().String())
 		return len(runes)
 	default:
+		// delegate to a Len method of the object
+		if v.Val.IsValid() {
+			if maybeFn := v.Val.MethodByName("Len"); maybeFn.IsValid() && maybeFn.CanInterface() {
+				if fn, isFunc := maybeFn.Interface().(func() int); isFunc {
+					return fn()
+				}
+			}
+		}
+
 		log.Errorf("Value.Len() not available for type: %s\n", v.getResolvedValue().Kind().String())
 		return 0
 	}
@@ -798,22 +807,6 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 		if field.IsValid() {
 			return ToValue(field), true
 		}
-	} else if resolvedVal.Kind() == reflect.Map {
-		switch name {
-		case "items":
-			return AsValue(func() *Value {
-				items := [][2]any{}
-				if asMap, isMap := resolvedVal.Interface().(map[string]any); isMap {
-					for key, value := range asMap {
-						items = append(items, [2]any{key, value})
-					}
-					sort.Slice(items, func(i, j int) bool {
-						return items[i][0].(string) < items[j][0].(string)
-					})
-				}
-				return AsValue(items)
-			}), true
-		}
 	}
 
 	return AsValue(nil), false // Attr not found
@@ -998,6 +991,7 @@ func (d *Dict) String() string {
 	for _, pair := range d.Pairs {
 		pairs = append(pairs, pair.String())
 	}
+	sort.Strings(pairs)
 	return fmt.Sprintf(`{%s}`, strings.Join(pairs, ", "))
 }
 
@@ -1016,6 +1010,29 @@ func (d *Dict) Get(key *Value) *Value {
 		}
 	}
 	return AsValue(nil)
+}
+
+func (d *Dict) Set(key *Value, value *Value) {
+	d.Pairs = append(d.Pairs, &Pair{
+		Key:   key,
+		Value: value,
+	})
+}
+
+func (d *Dict) Items() *ValuesList {
+	items := ValuesList{}
+	for _, pair := range d.Pairs {
+		pairAsList := ValuesList{}
+		pairAsList.Append(pair.Key)
+		pairAsList.Append(pair.Value)
+		items.Append(AsValue(&pairAsList))
+	}
+	sort.Sort(items)
+	return &items
+}
+
+func (d *Dict) Len() int {
+	return len(d.Pairs)
 }
 
 var TypeDict = reflect.TypeOf(Dict{})
