@@ -241,7 +241,7 @@ func (e *Evaluator) evalList(node *nodes.List) *Value {
 		value := e.Eval(val)
 		values = append(values, value)
 	}
-	return AsValue(values)
+	return AsValue(&values)
 }
 
 func (e *Evaluator) evalTuple(node *nodes.Tuple) *Value {
@@ -250,7 +250,7 @@ func (e *Evaluator) evalTuple(node *nodes.Tuple) *Value {
 		value := e.Eval(val)
 		values = append(values, value)
 	}
-	return AsValue(values)
+	return AsValue(&values)
 }
 
 func (e *Evaluator) evalDict(node *nodes.Dict) *Value {

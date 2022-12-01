@@ -777,6 +777,11 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 		return ToValue(maybeMethod), true
 	}
 
+	maybeMethod = v.Val.MethodByName(strings.Title(name))
+	if maybeMethod.IsValid() {
+		return ToValue(maybeMethod), true
+	}
+
 	var resolvedVal reflect.Value
 	if v.Val.Kind() == reflect.Ptr {
 		resolvedVal = v.Val.Elem()
@@ -908,6 +913,11 @@ type ValuesList []*Value
 
 func (vl ValuesList) Len() int {
 	return len(vl)
+}
+
+func (vl *ValuesList) Append(element *Value) *ValuesList {
+	*vl = append(*vl, element)
+	return vl
 }
 
 func (vl ValuesList) Less(i, j int) bool {
