@@ -285,17 +285,16 @@ func (e *Evaluator) evalGetitem(node *nodes.Getitem) *Value {
 	}
 
 	if node.Arg != nil {
-		key := e.Eval(*node.Arg).String()
-		item, found := value.Getitem(key)
+		key := e.Eval(*node.Arg)
+		item, found := value.Getitem(key.Interface())
 		if !found {
-			item, found = value.Getattr(key)
+			item, found = value.Getattr(key.String())
 		}
 		if !found {
 			if item.IsError() {
-				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node))
+				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node.String()))
 			}
-			return AsValue(nil)
-			// return AsValue(errors.Errorf(`Unable to evaluate %s: item '%s' not found`, node, node.Arg))
+			return AsValue(errors.Errorf(`Unable to evaluate %s: item '%s' not found`, node.String(), (*node.Arg).String()))
 		}
 		return item
 	} else {
@@ -304,12 +303,10 @@ func (e *Evaluator) evalGetitem(node *nodes.Getitem) *Value {
 			if item.IsError() {
 				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node))
 			}
-			return AsValue(nil)
-			// return AsValue(errors.Errorf(`Unable to evaluate %s: item %d not found`, node, node.Index))
+			return AsValue(errors.Errorf(`Unable to evaluate %s: item at index %d not found`, node, node.Index))
 		}
 		return item
 	}
-	return AsValue(errors.Errorf(`Unable to evaluate %s`, node))
 }
 
 func (e *Evaluator) evalGetattr(node *nodes.Getattr) *Value {
