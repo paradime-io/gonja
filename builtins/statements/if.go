@@ -31,11 +31,13 @@ func (node *IfStmt) Execute(r *exec.Renderer, tag *nodes.StatementBlock) error {
 		}
 
 		if result.IsTrue() {
-			return r.ExecuteWrapper(node.Wrappers[i])
+			// if statements do not introduce a new scope, see the block after:
+			//   https://jinja.palletsprojects.com/en/3.0.x/templates/#assignments
+			return r.ExecuteWrapperWithoutNewScope(node.Wrappers[i])
 		}
 		// Last condition?
 		if len(node.Conditions) == i+1 && len(node.Wrappers) > i+1 {
-			return r.ExecuteWrapper(node.Wrappers[i+1])
+			return r.ExecuteWrapperWithoutNewScope(node.Wrappers[i+1])
 		}
 	}
 	return nil

@@ -32,8 +32,23 @@ func (ctx *Context) Get(name string) interface{} {
 	}
 }
 
+func (ctx *Context) Overwrite(name string, value interface{}) bool {
+	if _, hasKey := ctx.data[name]; hasKey {
+		ctx.data[name] = value
+		return true
+	} else if ctx.parent != nil {
+		return ctx.parent.Overwrite(name, value)
+	} else {
+		return false
+	}
+}
+
+// Set first tries to overwrite the variable in a outer scope before adding it here.
+// If that doesn't work, we'll set the variable locally.
 func (ctx *Context) Set(name string, value interface{}) {
-	ctx.data[name] = value
+	if !ctx.Overwrite(name, value) {
+		ctx.data[name] = value
+	}
 }
 
 func (ctx *Context) Inherit() *Context {
