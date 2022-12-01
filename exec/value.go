@@ -190,13 +190,17 @@ func (v *Value) String() string {
 				keyLabel = fmt.Sprintf(`'%s'`, keyLabel)
 			}
 
-			value := resolved.MapIndex(key)
-			// Check whether this is an interface and resolve it where required
-			for value.Kind() == reflect.Interface {
-				value = reflect.ValueOf(value.Interface())
+			// convert it to a Value object so that we can re-use this method
+			value := &Value{
+				Val:  resolved.MapIndex(key),
+				Safe: false,
+			}
+			// Check whether this is an interface and resolve it where possible
+			if iVal := value.Interface(); iVal != nil {
+				value = AsValue(iVal)
 			}
 			valueLabel := value.String()
-			if value.Kind() == reflect.String {
+			if value.Val.Kind() == reflect.String {
 				valueLabel = fmt.Sprintf(`'%s'`, valueLabel)
 			}
 			pair := fmt.Sprintf(`%s: %s`, keyLabel, valueLabel)
@@ -767,25 +771,43 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 	if v.IsNil() {
 		return AsValue(errors.New(`Can't use getattr on None`)), false
 	}
-	var val reflect.Value
-	val = v.Val.MethodByName(name)
-	if val.IsValid() {
-		return ToValue(val), true
+	var maybeMethod reflect.Value
+	maybeMethod = v.Val.MethodByName(name)
+	if maybeMethod.IsValid() {
+		return ToValue(maybeMethod), true
 	}
+
+	var resolvedVal reflect.Value
 	if v.Val.Kind() == reflect.Ptr {
-		val = v.Val.Elem()
-		if !val.IsValid() {
+		resolvedVal = v.Val.Elem()
+		if !resolvedVal.IsValid() {
 			// Value is not valid (anymore)
 			return AsValue(nil), false
 		}
 	} else {
-		val = v.Val
+		resolvedVal = v.Val
 	}
 
-	if val.Kind() == reflect.Struct {
-		field := val.FieldByName(name)
+	if resolvedVal.Kind() == reflect.Struct {
+		field := resolvedVal.FieldByName(name)
 		if field.IsValid() {
 			return ToValue(field), true
+		}
+	} else if resolvedVal.Kind() == reflect.Map {
+		switch name {
+		case "items":
+			return AsValue(func() *Value {
+				items := [][2]any{}
+				if asMap, isMap := resolvedVal.Interface().(map[string]any); isMap {
+					for key, value := range asMap {
+						items = append(items, [2]any{key, value})
+					}
+					sort.Slice(items, func(i, j int) bool {
+						return items[i][0].(string) < items[j][0].(string)
+					})
+				}
+				return AsValue(items)
+			}), true
 		}
 	}
 

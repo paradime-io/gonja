@@ -49,7 +49,7 @@ func GlobTemplateTests(t *testing.T, root string, env *gonja.Environment) {
 				}
 			}()
 
-			rand.Seed(42) // Make tests deterministics
+			rand.Seed(42) // Make tests deterministic
 
 			tpl, err := env.FromFile(filename)
 			if err != nil {

@@ -52,6 +52,10 @@ func (e *Evaluator) Eval(node nodes.Expression) *Value {
 		return e.evalPair(n)
 	case *nodes.Name:
 		return e.evalName(n)
+	case *nodes.Varargs:
+		return e.evalName(&n.Name)
+	case *nodes.Kwargs:
+		return e.evalName(&n.Name)
 	case *nodes.Call:
 		return e.evalCall(n)
 	case *nodes.Getitem:
@@ -550,7 +554,27 @@ func (e *Evaluator) evalVarArgs(node *nodes.Call) ([]reflect.Value, error) {
 		if value.IsError() {
 			return nil, value
 		}
-		params.Args = append(params.Args, value)
+		if _, isVarargs := param.(*nodes.Varargs); isVarargs {
+			if value.CanSlice() {
+				value.Iterate(func(idx, count int, key, value *Value) bool {
+					params.Args = append(params.Args, key)
+					return true
+				}, func() {})
+			} else {
+				return nil, errors.Errorf("Cannot iterate over %v", param.String())
+			}
+		} else if _, isKwargs := param.(*nodes.Kwargs); isKwargs {
+			if value.IsDict() {
+				value.Iterate(func(idx, count int, innerKey, value *Value) bool {
+					params.KwArgs[innerKey.String()] = value
+					return true
+				}, func() {})
+			} else {
+				return nil, errors.Errorf("Cannot iterate over %v", param.String())
+			}
+		} else {
+			params.Args = append(params.Args, value)
+		}
 	}
 
 	for key, param := range node.Kwargs {
@@ -558,6 +582,7 @@ func (e *Evaluator) evalVarArgs(node *nodes.Call) ([]reflect.Value, error) {
 		if value.IsError() {
 			return nil, value
 		}
+
 		params.KwArgs[key] = value
 	}
 	// va := AsValue(VarArgs{})

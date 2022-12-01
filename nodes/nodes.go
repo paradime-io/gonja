@@ -218,6 +218,26 @@ func (n *Name) String() string {
 	return fmt.Sprintf("Name(Val=%s Line=%d Col=%d)", t.Val, t.Line, t.Col)
 }
 
+type Varargs struct {
+	Name Name
+}
+
+func (v *Varargs) Position() *tokens.Token { return v.Name.Name }
+func (v *Varargs) String() string {
+	t := v.Position()
+	return fmt.Sprintf("Varargs(Val=%s Line=%d Col=%d)", t.Val, t.Line, t.Col)
+}
+
+type Kwargs struct {
+	Name Name
+}
+
+func (k *Kwargs) Position() *tokens.Token { return k.Name.Position() }
+func (k *Kwargs) String() string {
+	t := k.Position()
+	return fmt.Sprintf("Kwargs(Val=%s Line=%d Col=%d)", t.Val, t.Line, t.Col)
+}
+
 type List struct {
 	Location *tokens.Token
 	Val      []Expression
@@ -241,6 +261,7 @@ type Dict struct {
 
 func (d *Dict) Position() *tokens.Token { return d.Token }
 func (d *Dict) String() string          { return d.Token.Val }
+func (d *Dict) Items() string           { return "hey!" }
 
 type Pair struct {
 	Key   Expression
@@ -305,7 +326,7 @@ type Call struct {
 func (c *Call) Position() *tokens.Token { return c.Location }
 func (c *Call) String() string {
 	t := c.Position()
-	return fmt.Sprintf("Call(Args=%s Kwargs=%s Line=%d Col=%d)", c.Args, c.Kwargs, t.Line, t.Col)
+	return fmt.Sprintf("Call(Func=%s Args=%s Kwargs=%s Line=%d Col=%d)", c.Func.String(), c.Args, c.Kwargs, t.Line, t.Col)
 }
 
 type Getitem struct {

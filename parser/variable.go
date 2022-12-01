@@ -364,6 +364,12 @@ func (p *Parser) ParseVariableOrLiteral() (nodes.Expression, error) {
 	case tokens.Name:
 		return p.ParseVariable()
 
+	case tokens.Mul:
+		return p.parseVarargs()
+
+	case tokens.Pow:
+		return p.parseKwargs()
+
 	default:
 		return nil, p.Error("Expected either a number, string, keyword or identifier.", t)
 	}
