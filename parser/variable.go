@@ -28,7 +28,7 @@ func (p *Parser) parseNumber() (nodes.Expression, error) {
 			Location: t,
 			Val:      i,
 		}
-		return nr, nil
+		return p.parseOpsOn(nr)
 	} else {
 		f, err := strconv.ParseFloat(t.Val, 64)
 		if err != nil {
@@ -38,7 +38,7 @@ func (p *Parser) parseNumber() (nodes.Expression, error) {
 			Location: t,
 			Val:      f,
 		}
-		return fr, nil
+		return p.parseOpsOn(fr)
 	}
 }
 
@@ -60,7 +60,7 @@ func (p *Parser) parseString() (nodes.Expression, error) {
 		Location: t,
 		Val:      newstr,
 	}
-	return sr, nil
+	return p.parseOpsOn(sr)
 }
 
 func (p *Parser) parseCollection() (nodes.Expression, error) {
@@ -250,6 +250,10 @@ func (p *Parser) ParseVariable() (nodes.Expression, error) {
 
 	var variable nodes.Node = &nodes.Name{t}
 
+	return p.parseOpsOn(variable)
+}
+
+func (p *Parser) parseOpsOn(variable nodes.Expression) (nodes.Expression, error) {
 	for !p.Stream.EOF() {
 		if dot := p.Match(tokens.Dot); dot != nil {
 			getattr := &nodes.Getattr{
