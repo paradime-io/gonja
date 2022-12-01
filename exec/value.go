@@ -24,7 +24,8 @@ type Value struct {
 // through a Context or within filter functions.
 //
 // Example:
-//     AsValue("my string")
+//
+//	AsValue("my string")
 func AsValue(i interface{}) *Value {
 	return &Value{
 		Val: reflect.ValueOf(i),
@@ -123,12 +124,12 @@ func (v *Value) Error() string {
 // of type string, gonja tries to convert it. Currently the following
 // types for underlying values are supported:
 //
-//     1. string
-//     2. int/uint (any size)
-//     3. float (any precision)
-//     4. bool
-//     5. time.Time
-//     6. String() will be called on the underlying value if provided
+//  1. string
+//  2. int/uint (any size)
+//  3. float (any precision)
+//  4. bool
+//  5. time.Time
+//  6. String() will be called on the underlying value if provided
 //
 // NIL values will lead to an empty string. Unsupported types are leading
 // to their respective type name.
@@ -279,12 +280,12 @@ func (v *Value) Bool() bool {
 //
 // Returns TRUE in one the following cases:
 //
-//     * int != 0
-//     * uint != 0
-//     * float != 0.0
-//     * len(array/chan/map/slice/string) > 0
-//     * bool == true
-//     * underlying value is a struct
+//   - int != 0
+//   - uint != 0
+//   - float != 0.0
+//   - len(array/chan/map/slice/string) > 0
+//   - bool == true
+//   - underlying value is a struct
 //
 // Otherwise returns always FALSE.
 func (v *Value) IsTrue() bool {
@@ -315,7 +316,8 @@ func (v *Value) IsTrue() bool {
 // return_value.IsTrue() afterwards.
 //
 // Example:
-//     AsValue(1).Negate().IsTrue() == false
+//
+//	AsValue(1).Negate().IsTrue() == false
 func (v *Value) Negate() *Value {
 	switch v.getResolvedValue().Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -399,7 +401,8 @@ func (v *Value) Index(i int) *Value {
 // whether a struct contains of a specific field or a map contains a specific key).
 //
 // Example:
-//     AsValue("Hello, World!").Contains(AsValue("World")) == true
+//
+//	AsValue("Hello, World!").Contains(AsValue("World")) == true
 func (v *Value) Contains(other *Value) bool {
 	resolved := v.getResolvedValue()
 	switch resolved.Kind() {
@@ -457,10 +460,10 @@ func (v *Value) CanSlice() bool {
 // Iterate iterates over a map, array, slice or a string. It calls the
 // function's first argument for every value with the following arguments:
 //
-//     idx      current 0-index
-//     count    total amount of items
-//     key      *Value for the key or item
-//     value    *Value (only for maps, the respective value for a specific key)
+//	idx      current 0-index
+//	count    total amount of items
+//	key      *Value for the key or item
+//	value    *Value (only for maps, the respective value for a specific key)
 //
 // If the underlying value has no items or is not one of the types above,
 // the empty function (function's second argument) will be called.
@@ -636,9 +639,23 @@ func (v *Value) IterateOrder(fn func(idx, count int, key, value *Value) bool, em
 }
 
 // Interface gives you access to the underlying value.
+// The problem we work around here is that Interface() panics for integers in some situations.
 func (v *Value) Interface() interface{} {
 	if v.Val.IsValid() {
-		return v.Val.Interface()
+		switch {
+		case v.Val.CanInterface():
+			return v.Val.Interface()
+		case v.IsString():
+			return v.String()
+		case v.IsBool():
+			return v.Bool()
+		case v.IsInteger():
+			return v.Integer()
+		case v.IsFloat():
+			return v.Float()
+		default:
+			log.Errorf("Value.Interface() is forbidden: v.Val=%s (kind: %v type: %T)\n", v.Val, v.Val.Kind(), v.Val)
+		}
 	}
 	return nil
 }
