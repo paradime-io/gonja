@@ -70,6 +70,12 @@ func NewConfig() *Config {
 		Autoescape:          false,
 		Ext:                 map[string]Inheritable{},
 		TestsNeedingRightSide: map[string]struct{}{
+			"==":          {},
+			">=":          {},
+			">":           {},
+			"<=":          {},
+			"<":           {},
+			"!=":          {},
 			"divisibleby": {},
 			"eq":          {},
 			"equalto":     {},
