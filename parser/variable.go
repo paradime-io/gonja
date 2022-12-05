@@ -1,7 +1,7 @@
 package parser
 
 import (
-	// "fmt"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -246,6 +246,8 @@ func (p *Parser) ParseVariable() (nodes.Expression, error) {
 			Val:      false,
 		}
 		return br, nil
+	case "and", "or", "in", "not", "is":
+		return nil, p.Error(fmt.Sprintf("Cannot use reserved name %v as variable name.", t.Val), t)
 	}
 
 	var variable nodes.Node = &nodes.Name{t}
