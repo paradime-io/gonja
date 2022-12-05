@@ -792,16 +792,6 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 	if v.IsNil() {
 		return AsValue(errors.New(`Can't use getattr on None`)), false
 	}
-	var maybeMethod reflect.Value
-	maybeMethod = v.Val.MethodByName(name)
-	if maybeMethod.IsValid() {
-		return ToValue(maybeMethod), true
-	}
-
-	maybeMethod = v.Val.MethodByName(strings.Title(name))
-	if maybeMethod.IsValid() {
-		return ToValue(maybeMethod), true
-	}
 
 	var resolvedVal reflect.Value
 	if v.Val.Kind() == reflect.Ptr {
@@ -819,6 +809,24 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 		field := resolvedVal.FieldByName(name)
 		if field.IsValid() {
 			return ToValue(field), true
+		}
+
+	case reflect.Map:
+		// Implementing some map functions in here. This is not ideal - better would
+		// be to recreate the Python type system explicitly instead of layering it on
+		// top of the golang type system.
+		switch name {
+		case "get":
+			return AsValue(func(key *Value, defaultValues ...*Value) (*Value, error) {
+				valueForKey, keyFound := v.Get(key.String())
+				if keyFound {
+					return AsValue(valueForKey), nil
+				} else if len(defaultValues) > 0 {
+					return defaultValues[0], nil
+				} else {
+					return nil, fmt.Errorf("cannot find key '%s' in the map", key.String())
+				}
+			}), true
 		}
 
 	case reflect.String:
@@ -843,6 +851,17 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 				return AsValue(strings.ToUpper(v.String())), nil
 			}), true
 		}
+	}
+
+	var maybeMethod reflect.Value
+	maybeMethod = v.Val.MethodByName(name)
+	if maybeMethod.IsValid() {
+		return ToValue(maybeMethod), true
+	}
+
+	maybeMethod = v.Val.MethodByName(strings.Title(name))
+	if maybeMethod.IsValid() {
+		return ToValue(maybeMethod), true
 	}
 
 	return AsValue(nil), false // Attr not found
