@@ -60,6 +60,8 @@ func (e *Evaluator) Eval(node nodes.Expression) *Value {
 		return e.evalCall(n)
 	case *nodes.Getitem:
 		return e.evalGetitem(n)
+	case *nodes.Getitemrange:
+		return e.evalGetitemrange(n)
 	case *nodes.Getattr:
 		return e.evalGetattr(n)
 	case *nodes.Negation:
@@ -302,15 +304,74 @@ func (e *Evaluator) evalGetitem(node *nodes.Getitem) *Value {
 		}
 		return item
 	} else {
-		item, found := value.Getitem(node.Index)
-		if !found {
-			if item.IsError() {
-				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node))
-			}
-			return AsValue(errors.Errorf(`Unable to evaluate %s: item at index %d not found`, node, node.Index))
-		}
-		return item
+		return AsValue(errors.Errorf(`No Arg was given`))
 	}
+}
+func (e *Evaluator) evalGetitemrange(node *nodes.Getitemrange) *Value {
+	value := e.Eval(node.Node)
+	if value.IsError() {
+		return AsValue(errors.Wrapf(value, `Unable to evaluate target %s`, node.Node))
+	}
+
+	valueLength := value.Len()
+
+	start := 0
+	stop := valueLength
+
+	if node.Start != nil {
+		startKey := e.Eval(*node.Start)
+		if !startKey.IsInteger() {
+			return AsValue(errors.Errorf(`Start of the range '%s' needs to be an integer`, startKey.String()))
+		}
+		start = startKey.Integer()
+	}
+
+	if node.Stop != nil {
+		stopKey := e.Eval(*node.Stop)
+		if !stopKey.IsInteger() {
+			return AsValue(errors.Errorf(`End of the range '%s' needs to be an integer`, stopKey.String()))
+		}
+		stop = stopKey.Integer()
+	}
+
+	// make sure that we support negative indices in the correct way
+	if start < 0 {
+		start = valueLength + start
+	}
+	if stop < 0 {
+		stop = valueLength + stop
+	}
+
+	// it's important that we make sure that the range in which start + stop lie
+	// corresponds to the range of indices value has. Otherwise we risk panics.
+	if start < 0 {
+		start = 0
+	}
+	if start > valueLength {
+		start = valueLength
+	}
+	if stop < 0 {
+		stop = 0
+	}
+	if stop > valueLength {
+		stop = valueLength
+	}
+
+	if value.IsString() {
+		valueAsString := value.String()
+		substring := valueAsString[start:stop]
+		return AsValue(substring)
+	} else {
+		values := ValuesList{}
+		for i := start; i < stop; i++ {
+			item, found := value.Getitem(i)
+			if found {
+				values = append(values, item)
+			}
+		}
+		return AsValue(&values)
+	}
+
 }
 
 func (e *Evaluator) evalGetattr(node *nodes.Getattr) *Value {

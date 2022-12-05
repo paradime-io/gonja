@@ -63,7 +63,7 @@ func (stmt *SetStmt) Execute(r *exec.Renderer, tag *nodes.StatementBlock) error 
 			return errors.Wrapf(target, `Unable to evaluate target %s`, n)
 		}
 		if n.Arg == nil {
-			return errors.Errorf(`Not implemented to evaluate getitem at %d`, n.Index) // TODO: implement
+			return errors.Errorf(`No Arg was given`)
 		} else if err := target.Set(r.Eval(*n.Arg).String(), value.Interface()); err != nil {
 			return errors.Wrapf(err, `Unable to set value on "%s"`, n.Arg)
 		}

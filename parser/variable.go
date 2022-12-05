@@ -247,7 +247,7 @@ func (p *Parser) ParseVariable() (nodes.Expression, error) {
 		}
 		return br, nil
 	case "and", "or", "in", "not", "is":
-		return nil, p.Error(fmt.Sprintf("Cannot use reserved name %v as variable name.", t.Val), t)
+		return nil, p.Error(fmt.Sprintf("Cannot use reserved name '%v' as variable name.", t.Val), t)
 	}
 
 	var variable nodes.Node = &nodes.Name{t}
@@ -286,16 +286,45 @@ func (p *Parser) parseOpsOn(variable nodes.Expression) (nodes.Expression, error)
 			if argErr != nil {
 				return nil, argErr
 			}
-			getitem := &nodes.Getitem{
-				Location: bracket,
-				Node:     variable,
-				Arg:      &arg,
-				Index:    0,
-			}
 
-			variable = getitem
-			if p.Match(tokens.Rbracket) == nil {
-				return nil, p.Error("Unbalanced bracket", bracket)
+			if p.Match(tokens.Colon) != nil {
+				if p.Match(tokens.Rbracket) == nil {
+					stop, stopErr := p.ParseExpressionWithInlineIfs()
+					if stopErr != nil {
+						return nil, stopErr
+					}
+
+					getitem := &nodes.Getitemrange{
+						Location: bracket,
+						Node:     variable,
+						Start:    &arg,
+						Stop:     &stop,
+					}
+					variable = getitem
+
+					if p.Match(tokens.Rbracket) == nil {
+						return nil, p.Error("Unbalanced bracket", bracket)
+					}
+				} else {
+					getitem := &nodes.Getitemrange{
+						Location: bracket,
+						Node:     variable,
+						Start:    &arg,
+						Stop:     nil,
+					}
+					variable = getitem
+				}
+			} else {
+				getitem := &nodes.Getitem{
+					Location: bracket,
+					Node:     variable,
+					Arg:      &arg,
+				}
+				variable = getitem
+
+				if p.Match(tokens.Rbracket) == nil {
+					return nil, p.Error("Unbalanced bracket", bracket)
+				}
 			}
 			continue
 

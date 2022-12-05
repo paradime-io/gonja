@@ -333,7 +333,6 @@ type Getitem struct {
 	Location *tokens.Token
 	Node     Node
 	Arg      *Expression
-	Index    int
 }
 
 func (g *Getitem) Position() *tokens.Token { return g.Location }
@@ -343,9 +342,34 @@ func (g *Getitem) String() string {
 	if g.Arg != nil {
 		param = fmt.Sprintf(`Arg=%s`, *g.Arg)
 	} else {
-		param = fmt.Sprintf(`Index=%s`, strconv.Itoa(g.Index))
+		param = `Arg=nil`
 	}
 	return fmt.Sprintf("Getitem(Node=%s %s Line=%d Col=%d)", g.Node, param, t.Line, t.Col)
+}
+
+type Getitemrange struct {
+	Location *tokens.Token
+	Node     Node
+	Start    *Expression
+	Stop     *Expression
+}
+
+func (g *Getitemrange) Position() *tokens.Token { return g.Location }
+func (g *Getitemrange) String() string {
+	t := g.Position()
+	var start string
+	if g.Start != nil {
+		start = fmt.Sprintf(`Start=%s`, *g.Start)
+	} else {
+		start = `Start=nil`
+	}
+	var stop string
+	if g.Stop != nil {
+		stop = fmt.Sprintf(`Stop=%s`, *g.Stop)
+	} else {
+		stop = `Stop=nil`
+	}
+	return fmt.Sprintf("Getitem(Node=%s %s %s Line=%d Col=%d)", g.Node, start, stop, t.Line, t.Col)
 }
 
 type Getattr struct {
