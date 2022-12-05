@@ -802,10 +802,34 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 		resolvedVal = v.Val
 	}
 
-	if resolvedVal.Kind() == reflect.Struct {
+	switch resolvedVal.Kind() {
+	case reflect.Struct:
 		field := resolvedVal.FieldByName(name)
 		if field.IsValid() {
 			return ToValue(field), true
+		}
+
+	case reflect.String:
+		// Implementing some string functions in here. This is not ideal - better would
+		// be to recreate the Python type system explicitly instead of layering it on
+		// top of the golang type system.
+		switch name {
+		case "endswith":
+			return AsValue(func(suffix *Value) (*Value, error) {
+				return AsValue(strings.HasSuffix(v.String(), suffix.String())), nil
+			}), true
+		case "startswith":
+			return AsValue(func(prefix *Value) (*Value, error) {
+				return AsValue(strings.HasPrefix(v.String(), prefix.String())), nil
+			}), true
+		case "lower":
+			return AsValue(func(prefix *Value) (*Value, error) {
+				return AsValue(strings.ToLower(v.String())), nil
+			}), true
+		case "upper":
+			return AsValue(func(prefix *Value) (*Value, error) {
+				return AsValue(strings.ToUpper(v.String())), nil
+			}), true
 		}
 	}
 
@@ -1003,13 +1027,17 @@ func (d *Dict) Keys() ValuesList {
 	return keys
 }
 
-func (d *Dict) Get(key *Value) *Value {
+func (d *Dict) Get(key *Value, defaultValues ...*Value) *Value {
 	for _, pair := range d.Pairs {
 		if pair.Key.EqualValueTo(key) {
 			return pair.Value
 		}
 	}
-	return AsValue(nil)
+	if len(defaultValues) > 0 {
+		return defaultValues[0]
+	} else {
+		return AsValue(nil)
+	}
 }
 
 func (d *Dict) Set(key *Value, value *Value) {
