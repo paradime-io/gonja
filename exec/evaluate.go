@@ -353,10 +353,12 @@ func (e *Evaluator) evalCall(node *nodes.Call) *Value {
 	}
 
 	if !fn.IsCallable() {
-		return AsValue(errors.Errorf(`%s is not callable`, node.Func))
+		if fn.Val.IsValid() {
+			return AsValue(errors.Errorf(`function %s was not found`, node.Func))
+		} else {
+			return AsValue(errors.Errorf(`%s is not callable`, node.Func))
+		}
 	}
-
-	// current := reflect.ValueOf(fn) // Get the initial value
 
 	var current reflect.Value
 	var isSafe bool
