@@ -27,6 +27,10 @@ type Value struct {
 //
 //	AsValue("my string")
 func AsValue(i interface{}) *Value {
+	if value, isValue := i.(*Value); isValue {
+		return value
+	}
+
 	return &Value{
 		Val: reflect.ValueOf(i),
 	}
