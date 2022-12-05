@@ -109,10 +109,18 @@ func (v *Value) IsNil() bool {
 	return !v.getResolvedValue().IsValid()
 }
 
+// IsError detects if an object is an error. It does it by detecting if it fulfills
+// the error interface. However Value is also implementing that interface, so we have
+// to be careful to mistake a general Value for an error.
 func (v *Value) IsError() bool {
 	if v.IsNil() || !v.getResolvedValue().CanInterface() {
 		return false
 	}
+
+	if maybeValue, isValue := v.Interface().(*Value); isValue {
+		return maybeValue.IsError()
+	}
+
 	_, ok := v.Interface().(error)
 	return ok
 }
