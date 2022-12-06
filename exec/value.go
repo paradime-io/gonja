@@ -695,7 +695,7 @@ func (v *Value) EqualValueTo(other *Value) bool {
 	if v.IsInteger() && other.IsInteger() {
 		return v.Integer() == other.Integer()
 	}
-	return v.Interface() == other.Interface()
+	return reflect.DeepEqual(v.Interface(), other.Interface())
 }
 
 func (v *Value) Keys() ValuesList {
