@@ -207,6 +207,10 @@ func (v *Value) String() string {
 				Val:  resolved.MapIndex(key),
 				Safe: false,
 			}
+			if key.String() == "gonjaSerialisedDict" {
+				return value.String()
+			}
+
 			// Check whether this is an interface and resolve it where possible
 			if iVal := value.Interface(); iVal != nil {
 				value = AsValue(iVal)
@@ -827,6 +831,27 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 					return nil, fmt.Errorf("cannot find key '%s' in the map", key.String())
 				}
 			}), true
+		case "update":
+			return AsValue(func(d *Value) error {
+				for _, key := range d.Val.MapKeys() {
+					if err := d.Set(key.String(), AsValue(v.Val.MapIndex(key))); err != nil {
+						return err
+					}
+				}
+				return nil
+			}), true
+		case "items":
+			return AsValue(func() (*Value, error) {
+				items := ValuesList{}
+				for _, key := range v.Val.MapKeys() {
+					pairAsList := ValuesList{}
+					pairAsList.Append(AsValue(key))
+					pairAsList.Append(AsValue(v.Val.MapIndex(key)))
+					items.Append(AsValue(&pairAsList))
+				}
+				sort.Sort(items)
+				return AsValue(&items), nil
+			}), true
 		}
 
 	case reflect.String:
@@ -1088,6 +1113,13 @@ func (d *Dict) Items() *ValuesList {
 	}
 	sort.Sort(items)
 	return &items
+}
+func (d *Dict) Update(v *Value) error {
+	v.Iterate(func(idx, count int, key, value *Value) bool {
+		d.Set(key, value)
+		return true
+	}, func() {})
+	return nil
 }
 
 func (d *Dict) Len() int {
