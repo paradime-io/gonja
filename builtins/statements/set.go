@@ -106,7 +106,7 @@ func setParser(p *parser.Parser, args *parser.Parser) (nodes.Statement, error) {
 	} else {
 
 		// Variable expression
-		expr, err := args.ParseExpression()
+		expr, err := args.ParseExpressionWithInlineIfs()
 		if err != nil {
 			return nil, err
 		}
