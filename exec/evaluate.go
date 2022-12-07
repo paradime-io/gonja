@@ -419,9 +419,9 @@ func (e *Evaluator) evalCall(node *nodes.Call) *Value {
 
 	if !fn.IsCallable() {
 		if fn.Val.IsValid() {
-			return AsValue(errors.Errorf(`function %s was not found`, node.Func))
-		} else {
 			return AsValue(errors.Errorf(`%s is not callable`, node.Func))
+		} else {
+			return AsValue(errors.Errorf(`function %s was not found`, node.Func))
 		}
 	}
 
