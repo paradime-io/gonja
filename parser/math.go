@@ -86,11 +86,6 @@ func (p *Parser) ParseMath() (nodes.Expression, error) {
 		}
 	}
 
-	expr, err = p.ParseFilterExpression(expr)
-	if err != nil {
-		return nil, err
-	}
-
 	log.WithFields(log.Fields{
 		"expr": expr,
 	}).Trace("ParseMath return")
@@ -173,6 +168,11 @@ func (p *Parser) parseUnary() (nodes.Expression, error) {
 			Negative: sign.Val == "-",
 			Term:     expr,
 		}
+	}
+
+	expr, err = p.ParseFilterExpression(expr)
+	if err != nil {
+		return nil, err
 	}
 
 	log.WithFields(log.Fields{

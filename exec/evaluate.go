@@ -128,6 +128,10 @@ func (e *Evaluator) evalBinaryExpression(node *nodes.BinaryExpression) *Value {
 
 			return v
 		}
+		if left.IsString() || right.IsString() {
+			// Result will be a string
+			return AsValue(left.String() + right.String())
+		}
 		if left.IsFloat() || right.IsFloat() {
 			// Result will be a float
 			return AsValue(left.Float() + right.Float())
