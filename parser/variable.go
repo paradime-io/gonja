@@ -50,11 +50,15 @@ func (p *Parser) parseString() (nodes.Expression, error) {
 	if t == nil {
 		return nil, p.Error("Expected a string", t)
 	}
-	str := strconv.Quote(t.Val)
-	replaced := strings.Replace(str, `\\`, "\\", -1)
+	replaced := strconv.Quote(t.Val)
+	replaced = strings.Replace(replaced, `\\n`, `\n`, -1)
+	replaced = strings.Replace(replaced, `\\t`, `\t`, -1)
 	newstr, err := strconv.Unquote(replaced)
 	if err != nil {
-		return nil, p.Error(err.Error(), t)
+		// this scenario can happen if there are invalid escape sequences.
+		// that's why we whitelist the allowed escape sequences above
+		log.Errorf("unable to parse string `%v` -> ignored %v", replaced, err)
+		newstr = t.Val // we fall back to the original string
 	}
 	sr := &nodes.String{
 		Location: t,
