@@ -152,6 +152,12 @@ func (v *Value) String() string {
 	resolved := v.getResolvedValue()
 
 	switch resolved.Kind() {
+	case reflect.Interface:
+		if resolved.CanInterface() {
+			if asValue, isValue := resolved.Interface().(*Value); isValue {
+				return asValue.String()
+			}
+		}
 	case reflect.String:
 		return resolved.String()
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -367,6 +373,8 @@ func (v *Value) Negate() *Value {
 // Otherwise it will return 0.
 func (v *Value) Len() int {
 	switch v.getResolvedValue().Kind() {
+	case reflect.Invalid:
+		return 0
 	case reflect.Array, reflect.Chan, reflect.Map, reflect.Slice:
 		return v.getResolvedValue().Len()
 	case reflect.String:
@@ -506,6 +514,9 @@ func (v *Value) Iterate(fn func(idx, count int, key, value *Value) bool, empty f
 func (v *Value) IterateOrder(fn func(idx, count int, key, value *Value) bool, empty func(), reverse bool, sorted bool, caseSensitive bool) {
 	resolved := v.getResolvedValue()
 	switch resolved.Kind() {
+	case reflect.Invalid:
+		empty()
+		return
 	case reflect.Map:
 		keys := v.Keys()
 		if sorted {
@@ -632,6 +643,8 @@ func (v *Value) IterateOrder(fn func(idx, count int, key, value *Value) bool, em
 	case reflect.Struct:
 		if resolved.Type() != TypeDict {
 			log.Errorf("Value.Iterate() not available for type: %s\n", resolved.Kind().String())
+			empty()
+			return
 		}
 		dict := resolved.Interface().(Dict)
 		keys := dict.Keys()
