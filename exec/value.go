@@ -87,7 +87,24 @@ func (v *Value) IsNumber() bool {
 }
 
 func (v *Value) IsCallable() bool {
-	return v.getResolvedValue().Kind() == reflect.Func
+	if v.getResolvedValue().Kind() == reflect.Func {
+		return true
+	} else if v.getResolvedValue().Kind() == reflect.Struct {
+		Call := v.getResolvedValue().MethodByName("Call")
+		return Call.IsValid() && Call.Kind() == reflect.Func
+	} else {
+		return false
+	}
+}
+func (v *Value) Callable() reflect.Value {
+	if v.getResolvedValue().Kind() == reflect.Func {
+		return v.Val
+	} else if v.getResolvedValue().Kind() == reflect.Struct {
+		Call := v.getResolvedValue().MethodByName("Call")
+		return Call
+	} else {
+		return reflect.Value{}
+	}
 }
 
 func (v *Value) IsList() bool {

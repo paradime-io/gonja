@@ -430,7 +430,8 @@ func (e *Evaluator) evalCall(node *nodes.Call) *Value {
 
 	var params []reflect.Value
 	var err error
-	t := fn.Val.Type()
+	callable := fn.Callable()
+	t := callable.Type()
 
 	if t.NumIn() == 1 && t.In(0) == reflect.TypeOf(&VarArgs{}) {
 		params, err = e.evalVarArgs(node)
@@ -442,7 +443,7 @@ func (e *Evaluator) evalCall(node *nodes.Call) *Value {
 	}
 
 	// Call it and get first return parameter back
-	values := fn.Val.Call(params)
+	values := callable.Call(params)
 	rv := values[0]
 	if t.NumOut() == 2 {
 		e := values[1].Interface()
