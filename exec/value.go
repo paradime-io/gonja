@@ -90,7 +90,7 @@ func (v *Value) IsCallable() bool {
 	if v.getResolvedValue().Kind() == reflect.Func {
 		return true
 	} else if v.getResolvedValue().Kind() == reflect.Struct {
-		Call := v.getResolvedValue().MethodByName("Call")
+		Call := v.Val.MethodByName("Call")
 		return Call.IsValid() && Call.Kind() == reflect.Func
 	} else {
 		return false
@@ -100,7 +100,7 @@ func (v *Value) Callable() reflect.Value {
 	if v.getResolvedValue().Kind() == reflect.Func {
 		return v.Val
 	} else if v.getResolvedValue().Kind() == reflect.Struct {
-		Call := v.getResolvedValue().MethodByName("Call")
+		Call := v.Val.MethodByName("Call")
 		return Call
 	} else {
 		return reflect.Value{}

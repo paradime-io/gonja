@@ -100,7 +100,7 @@ func (e *Evaluator) evalBinaryExpression(node *nodes.BinaryExpression) *Value {
 	}
 
 	switch node.Operator.Token.Val {
-	// These operators allow lazy right expression evluation
+	// These operators allow lazy right expression evaluation
 	case "and", "or":
 	default:
 		right = e.Eval(node.Right)
@@ -417,12 +417,10 @@ func (e *Evaluator) evalCall(node *nodes.Call) *Value {
 		return AsValue(errors.Wrapf(fn, `Unable to evaluate function "%s"`, node.Func))
 	}
 
-	if !fn.IsCallable() {
-		if fn.Val.IsValid() {
-			return AsValue(errors.Errorf(`%s is not callable`, node.Func))
-		} else {
-			return AsValue(errors.Errorf(`function %s was not found`, node.Func))
-		}
+	if !fn.Val.IsValid() {
+		return AsValue(errors.Errorf(`function %s was not found`, node.Func))
+	} else if !fn.IsCallable() {
+		return AsValue(errors.Errorf(`function %s is not callable`, node.Func))
 	}
 
 	var current reflect.Value
