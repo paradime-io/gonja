@@ -319,6 +319,8 @@ func (v *Value) IsTrue() bool {
 		return false
 	}
 	switch v.getResolvedValue().Kind() {
+	case reflect.Invalid:
+		return false
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return v.getResolvedValue().Int() != 0
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -346,6 +348,8 @@ func (v *Value) IsTrue() bool {
 //	AsValue(1).Negate().IsTrue() == false
 func (v *Value) Negate() *Value {
 	switch v.getResolvedValue().Kind() {
+	case reflect.Invalid:
+		return AsValue(true)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if v.Integer() != 0 {
@@ -443,6 +447,8 @@ func (v *Value) Index(i int) *Value {
 func (v *Value) Contains(other *Value) bool {
 	resolved := v.getResolvedValue()
 	switch resolved.Kind() {
+	case reflect.Invalid:
+		return false
 	case reflect.Struct:
 		if dict, ok := resolved.Interface().(Dict); ok {
 			return dict.Keys().Contains(other)
@@ -707,6 +713,9 @@ func (v *Value) EqualValueTo(other *Value) bool {
 	// comparison of uint with int fails using .Interface()-comparison (see issue #64)
 	if v.IsInteger() && other.IsInteger() {
 		return v.Integer() == other.Integer()
+	}
+	if v.IsNil() && other.IsNil() {
+		return true
 	}
 	return reflect.DeepEqual(v.Interface(), other.Interface())
 }

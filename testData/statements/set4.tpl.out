@@ -1,0 +1,6 @@
+
+default: 'default'
+
+first: 'fallback'
+
+second: 'already_set'
