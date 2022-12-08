@@ -1109,6 +1109,9 @@ func (d *Dict) String() string {
 	pairs := []string{}
 	for _, pair := range d.Pairs {
 		pairs = append(pairs, pair.String())
+		if pair.Key.String() == "gonjaSerialisedDict" {
+			return pair.Value.String()
+		}
 	}
 	sort.Strings(pairs)
 	return fmt.Sprintf(`{%s}`, strings.Join(pairs, ", "))
