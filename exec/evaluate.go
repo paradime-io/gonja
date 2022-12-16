@@ -294,8 +294,10 @@ func (e *Evaluator) evalGetitem(node *nodes.Getitem) *Value {
 			if item.IsError() {
 				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node))
 			}
+			if e.Config.StrictUndefined {
+				return AsValue(errors.Errorf(`Unable to evaluate %s: item '%s' not found`, node, node.Arg))
+			}
 			return AsValue(nil)
-			// return AsValue(errors.Errorf(`Unable to evaluate %s: item '%s' not found`, node, node.Arg))
 		}
 		return item
 	} else {
@@ -304,8 +306,10 @@ func (e *Evaluator) evalGetitem(node *nodes.Getitem) *Value {
 			if item.IsError() {
 				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node))
 			}
+			if e.Config.StrictUndefined {
+				return AsValue(errors.Errorf(`Unable to evaluate %s: item %d not found`, node, node.Index))
+			}
 			return AsValue(nil)
-			// return AsValue(errors.Errorf(`Unable to evaluate %s: item %d not found`, node, node.Index))
 		}
 		return item
 	}
@@ -327,8 +331,10 @@ func (e *Evaluator) evalGetattr(node *nodes.Getattr) *Value {
 			if attr.IsError() {
 				return AsValue(errors.Wrapf(attr, `Unable to evaluate %s`, node))
 			}
+			if e.Config.StrictUndefined {
+				return AsValue(errors.Errorf(`Unable to evaluate %s: attribute '%s' not found`, node, node.Attr))
+			}
 			return AsValue(nil)
-			// return AsValue(errors.Errorf(`Unable to evaluate %s: attribute '%s' not found`, node, node.Attr))
 		}
 		return attr
 	} else {
@@ -337,8 +343,10 @@ func (e *Evaluator) evalGetattr(node *nodes.Getattr) *Value {
 			if item.IsError() {
 				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node))
 			}
+			if e.Config.StrictUndefined {
+				return AsValue(errors.Errorf(`Unable to evaluate %s: item %d not found`, node, node.Index))
+			}
 			return AsValue(nil)
-			// return AsValue(errors.Errorf(`Unable to evaluate %s: item %d not found`, node, node.Index))
 		}
 		return item
 	}
