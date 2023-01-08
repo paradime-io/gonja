@@ -3,7 +3,6 @@ package loaders
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -75,7 +74,7 @@ func (fs *FilesystemLoader) Get(path string) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	buf, err := ioutil.ReadFile(realPath)
+	buf, err := os.ReadFile(realPath)
 	if err != nil {
 		return nil, err
 	}
