@@ -28,7 +28,7 @@ func MustNewFileSystemLoader(root string) *FilesystemLoader {
 }
 
 // NewFileSystemLoader creates a new FilesystemLoader and allows
-// templatesto be loaded from disk (unrestricted). If any base directory
+// templates to be loaded from disk (unrestricted). If any base directory
 // is given (or being set using SetBaseDir), this base directory is being used
 // for path calculation in template inclusions/imports. Otherwise the path
 // is calculated based relatively to the including template's path.

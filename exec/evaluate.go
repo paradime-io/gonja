@@ -94,7 +94,7 @@ func (e *Evaluator) evalBinaryExpression(node *nodes.BinaryExpression) *Value {
 	}
 
 	switch node.Operator.Token.Val {
-	// These operators allow lazy right expression evluation
+	// These operators allow lazy right expression evaluation
 	case "and", "or":
 	default:
 		right = e.Eval(node.Right)

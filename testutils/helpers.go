@@ -181,7 +181,7 @@ func GlobParsingErrorTests(t *testing.T, root string) {
 
 				_, err := env.FromString(test)
 				if err == nil {
-					t.Fatalf("Error excpected but not received: %s\n", test)
+					t.Fatalf("Error expected but not received: %s\n", test)
 				}
 
 				re := regexp.MustCompile(fmt.Sprintf("^%s$", checks[idx]))

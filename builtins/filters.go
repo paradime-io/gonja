@@ -991,13 +991,13 @@ func filterToJSON(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec
 	if indent.IsNil() {
 		b, err := json.Marshal(in.Interface())
 		if err != nil {
-			return exec.AsValue(errors.Wrap(err, "Unable to marhsall to json"))
+			return exec.AsValue(errors.Wrap(err, "Unable to marshall to json"))
 		}
 		out = string(b)
 	} else if indent.IsInteger() {
 		b, err := json.MarshalIndent(in.Interface(), "", strings.Repeat(" ", indent.Integer()))
 		if err != nil {
-			return exec.AsValue(errors.Wrap(err, "Unable to marhsall to json"))
+			return exec.AsValue(errors.Wrap(err, "Unable to marshall to json"))
 		}
 		out = string(b)
 	} else {
