@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"github.com/goph/emperror"
+	"emperror.dev/emperror"
 	"github.com/paradime-io/gonja/tokens"
 	// "bufio"
 	// "fmt"
