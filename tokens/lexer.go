@@ -12,7 +12,7 @@ import (
 	"github.com/paradime-io/gonja/config"
 )
 
-// EOF is an arbitraty value for End Of File
+// EOF is an arbitrary value for End Of File
 const rEOF = -1
 const re_ENDRAW = `%s\s*%s`
 
@@ -46,6 +46,12 @@ type Lexer struct {
 // TODO: set from env
 type rawStmt map[string]*regexp.Regexp
 
+func escape_chars_clashing_regexp(s string) string {
+	s = strings.ReplaceAll(s, "[", "\\[")
+	s = strings.ReplaceAll(s, "]", "\\]")
+	return s
+}
+
 // NewLexer creates a new scanner for the input string.
 func NewLexer(input string) *Lexer {
 	cfg := config.DefaultConfig
@@ -54,8 +60,8 @@ func NewLexer(input string) *Lexer {
 		Tokens: make(chan *Token),
 		Config: cfg,
 		RawStatements: rawStmt{
-			"raw":     regexp.MustCompile(fmt.Sprintf(`%s\s*endraw`, cfg.BlockStartString)),
-			"comment": regexp.MustCompile(fmt.Sprintf(`%s\s*endcomment`, cfg.BlockStartString)),
+			"raw":     regexp.MustCompile(fmt.Sprintf(`%s\s*endraw`, escape_chars_clashing_regexp(cfg.BlockStartString))),
+			"comment": regexp.MustCompile(fmt.Sprintf(`%s\s*endcomment`, escape_chars_clashing_regexp(cfg.BlockStartString))),
 		},
 	}
 }

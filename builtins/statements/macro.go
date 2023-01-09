@@ -107,7 +107,7 @@ func macroParser(p *parser.Parser, args *parser.Parser) (nodes.Statement, error)
 				return nil, err
 			}
 			stmt.Kwargs = append(stmt.Kwargs, &nodes.Pair{
-				Key:   &nodes.String{argName, argName.Val},
+				Key:   &nodes.String{Location: argName, Val: argName.Val},
 				Value: expr,
 			})
 			// stmt.Kwargs[argName.Val] = expr

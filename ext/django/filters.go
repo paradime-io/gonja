@@ -386,10 +386,10 @@ func filterFloatformat(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) 
 
 func filterGetdigit(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
 	if len(params.Args) > 1 {
-		return exec.AsValue(errors.New("'getdigit' filter expect one and only one argument"))
+		return exec.AsValue(errors.New("'get_digit' filter expect one and only one argument"))
 		// return nil, &Error{
-		// 	Sender:    "filter:getdigit",
-		// 	OrigError: errors.New("'getdigit' filter expect one and only one argument"),
+		// 	Sender:    "filter:getDigit",
+		// 	OrigError: errors.New("'getDigit' filter expect one and only one argument"),
 		// }
 	}
 	param := params.First()
@@ -587,10 +587,10 @@ func filterRjust(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.
 func filterYesno(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
 	if len(params.Args) > 1 {
 		// return nil, &Error{
-		// 	Sender:    "filter:getdigit",
-		// 	OrigError: errors.New("'getdigit' filter expect one and only one argument"),
+		// 	Sender:    "filter:filterYesno",
+		// 	OrigError: errors.New("'filterYesno' filter expect one and only one argument"),
 		// }
-		return exec.AsValue(errors.New("'getdigit' filter expect one and only one argument"))
+		return exec.AsValue(errors.New("'yesno' filter expect one and only one argument"))
 	}
 	choices := map[int]string{
 		0: "yes",

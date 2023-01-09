@@ -4,7 +4,7 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/goph/emperror"
+	"emperror.dev/emperror"
 
 	"github.com/paradime-io/gonja/builtins"
 	"github.com/paradime-io/gonja/config"

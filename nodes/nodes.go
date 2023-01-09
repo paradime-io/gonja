@@ -104,7 +104,7 @@ func (c *Comment) String() string {
 		u.Ellipsis(c.Text, 20), c.Start.Line, c.Start.Col)
 }
 
-// Ouput represents a printable expression node {{ }}
+// Output represents a printable expression node {{ }}
 type Output struct {
 	Start      *tokens.Token
 	Expression Expression

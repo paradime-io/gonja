@@ -14,6 +14,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/pkg/errors"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/paradime-io/gonja/exec"
 	u "github.com/paradime-io/gonja/utils"
@@ -967,7 +969,8 @@ func filterTitle(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.
 	if !in.IsString() {
 		return exec.AsValue("")
 	}
-	return exec.AsValue(strings.Title(strings.ToLower(in.String())))
+	caser := cases.Title(language.Und)
+	return exec.AsValue(caser.String(in.String()))
 }
 
 func filterTrim(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec.Value {
@@ -988,13 +991,13 @@ func filterToJSON(e *exec.Evaluator, in *exec.Value, params *exec.VarArgs) *exec
 	if indent.IsNil() {
 		b, err := json.Marshal(in.Interface())
 		if err != nil {
-			return exec.AsValue(errors.Wrap(err, "Unable to marhsall to json"))
+			return exec.AsValue(errors.Wrap(err, "Unable to marshall to json"))
 		}
 		out = string(b)
 	} else if indent.IsInteger() {
 		b, err := json.MarshalIndent(in.Interface(), "", strings.Repeat(" ", indent.Integer()))
 		if err != nil {
-			return exec.AsValue(errors.Wrap(err, "Unable to marhsall to json"))
+			return exec.AsValue(errors.Wrap(err, "Unable to marshall to json"))
 		}
 		out = string(b)
 	} else {

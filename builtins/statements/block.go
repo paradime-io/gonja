@@ -97,7 +97,7 @@ func blockParser(p *parser.Parser, args *parser.Parser) (nodes.Statement, error)
 	if !endargs.End() {
 		endName := endargs.Match(tokens.Name)
 		if endName != nil {
-			if endName.Val != endName.Val {
+			if name.Val != endName.Val {
 				return nil, errors.Errorf(`Name for 'endblock' must equal to 'block'-tag's name ('%s' != '%s').`,
 					name.Val, endName.Val)
 			}
