@@ -286,9 +286,14 @@ func (p *Parser) parseOpsOn(variable nodes.Expression) (nodes.Expression, error)
 			variable = getattr
 			continue
 		} else if bracket := p.Match(tokens.Lbracket); bracket != nil {
-			arg, argErr := p.ParseExpressionWithInlineIfs()
-			if argErr != nil {
-				return nil, argErr
+
+			var startArg *nodes.Expression
+			if p.Peek(tokens.Colon) == nil {
+				arg, argErr := p.ParseExpressionWithInlineIfs()
+				if argErr != nil {
+					return nil, argErr
+				}
+				startArg = &arg
 			}
 
 			if p.Match(tokens.Colon) != nil {
@@ -301,7 +306,7 @@ func (p *Parser) parseOpsOn(variable nodes.Expression) (nodes.Expression, error)
 					getitem := &nodes.Getitemrange{
 						Location: bracket,
 						Node:     variable,
-						Start:    &arg,
+						Start:    startArg,
 						Stop:     &stop,
 					}
 					variable = getitem
@@ -313,7 +318,7 @@ func (p *Parser) parseOpsOn(variable nodes.Expression) (nodes.Expression, error)
 					getitem := &nodes.Getitemrange{
 						Location: bracket,
 						Node:     variable,
-						Start:    &arg,
+						Start:    startArg,
 						Stop:     nil,
 					}
 					variable = getitem
@@ -322,7 +327,7 @@ func (p *Parser) parseOpsOn(variable nodes.Expression) (nodes.Expression, error)
 				getitem := &nodes.Getitem{
 					Location: bracket,
 					Node:     variable,
-					Arg:      &arg,
+					Arg:      startArg,
 				}
 				variable = getitem
 
