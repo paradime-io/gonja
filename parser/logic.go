@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"github.com/paradime-io/gonja/nodes"
 	"github.com/paradime-io/gonja/tokens"
 	log "github.com/sirupsen/logrus"
@@ -153,15 +154,18 @@ func (p *Parser) parseCompare() (nodes.Expression, error) {
 		return nil, err
 	}
 
-	// for p.PeekOne(TokenKeyword, "in", "not in") != nil || p.PeekOne(TokenSymbol, "==", "<=", ">=", "!=", "<>", ">", "<") != nil {
 	for p.Peek(compareOps...) != nil || p.PeekName("in", "not") != nil {
+		var not *tokens.Token
 
 		op := p.Pop()
-		// if op = p.MatchOne(TokenKeyword, "in", "not in"); op == nil {
-		// 	if op = p.MatchOne(TokenSymbol, "==", "<=", ">=", "!=", "<>", ">", "<"); op == nil {
-		// 		return nil, p.Error("Unexpected operator %s", p.Current())
-		// 	}
-		// }
+		if op.Val == "not" {
+			if nextOp := p.MatchName("in"); nextOp != nil {
+				not = op
+				op = nextOp
+			} else {
+				return nil, p.Error(fmt.Sprintf("Expect an `in` after a not."), op)
+			}
+		}
 
 		right, err := p.ParseMath()
 		if err != nil {
@@ -174,6 +178,11 @@ func (p *Parser) parseCompare() (nodes.Expression, error) {
 				Operator: BinOp(op),
 				Right:    right,
 			}
+			if not != nil {
+				expr = &nodes.Negation{expr, not}
+			}
+		} else {
+			return nil, p.Error(fmt.Sprintf("Unable to parse right hand side of comparision"), op)
 		}
 	}
 

@@ -68,6 +68,18 @@ func (r *Renderer) Inherit() *Renderer {
 	return sub
 }
 
+func (r *Renderer) InheritWithoutNewScope() *Renderer {
+	sub := &Renderer{
+		EvalConfig: r.EvalConfig.Inherit(),
+		Ctx:        r.Ctx,
+		Template:   r.Template,
+		Root:       r.Root,
+		Out:        r.Out,
+		Trim:       r.Trim,
+	}
+	return sub
+}
+
 func (r *Renderer) Flush(lstrip bool) {
 	r.FlushAndTrim(false, lstrip)
 }
@@ -170,6 +182,14 @@ func (r *Renderer) Visit(node nodes.Node) (nodes.Visitor, error) {
 // ExecuteWrapper wraps the nodes.Wrapper execution logic
 func (r *Renderer) ExecuteWrapper(wrapper *nodes.Wrapper) error {
 	sub := r.Inherit()
+	err := nodes.Walk(sub, wrapper)
+	sub.Tag(wrapper.Trim, wrapper.LStrip)
+	r.Trim.ShouldBlock = r.Config.TrimBlocks
+	return err
+}
+
+func (r *Renderer) ExecuteWrapperWithoutNewScope(wrapper *nodes.Wrapper) error {
+	sub := r.InheritWithoutNewScope()
 	err := nodes.Walk(sub, wrapper)
 	sub.Tag(wrapper.Trim, wrapper.LStrip)
 	r.Trim.ShouldBlock = r.Config.TrimBlocks

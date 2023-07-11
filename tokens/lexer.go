@@ -476,7 +476,7 @@ func (l *Lexer) nextIdentifier() string {
 
 func (l *Lexer) lexIdentifier() lexFn {
 	l.nextIdentifier()
-	l.emit(Name)
+	l.processAndEmit(Name, strings.TrimSpace) // the lexer sometimes captures additional whitespace
 	return l.lexExpression
 }
 

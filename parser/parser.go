@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"strings"
 
 	"github.com/paradime-io/gonja/config"
@@ -272,4 +273,42 @@ func (p *Parser) SkipUntil(names ...string) error {
 	}
 
 	return p.Error(fmt.Sprintf("Unexpected EOF, expected tag %s.", strings.Join(names, " or ")), p.Current())
+}
+
+func (p *Parser) parseVarargs() (nodes.Expression, error) {
+	log.WithFields(log.Fields{
+		"current": p.Current(),
+	}).Trace("parseVarargs")
+
+	if m := p.Match(tokens.Mul); m == nil {
+		return nil, p.Error("Expected a *.", m)
+	}
+
+	t := p.Match(tokens.Name)
+	if t == nil {
+		return nil, p.Error("Expected an identifier.", t)
+	}
+
+	return &nodes.Varargs{
+		Name: nodes.Name{Name: t},
+	}, nil
+}
+
+func (p *Parser) parseKwargs() (nodes.Expression, error) {
+	log.WithFields(log.Fields{
+		"current": p.Current(),
+	}).Trace("parseKwargs")
+
+	if m := p.Match(tokens.Pow); m == nil {
+		return nil, p.Error("Expected a **.", m)
+	}
+
+	t := p.Match(tokens.Name)
+	if t == nil {
+		return nil, p.Error("Expected an identifier.", t)
+	}
+
+	return &nodes.Kwargs{
+		Name: nodes.Name{Name: t},
+	}, nil
 }

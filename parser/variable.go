@@ -1,7 +1,7 @@
 package parser
 
 import (
-	// "fmt"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -28,7 +28,7 @@ func (p *Parser) parseNumber() (nodes.Expression, error) {
 			Location: t,
 			Val:      i,
 		}
-		return nr, nil
+		return p.parseOpsOn(nr)
 	} else {
 		f, err := strconv.ParseFloat(t.Val, 64)
 		if err != nil {
@@ -38,7 +38,7 @@ func (p *Parser) parseNumber() (nodes.Expression, error) {
 			Location: t,
 			Val:      f,
 		}
-		return fr, nil
+		return p.parseOpsOn(fr)
 	}
 }
 
@@ -50,17 +50,21 @@ func (p *Parser) parseString() (nodes.Expression, error) {
 	if t == nil {
 		return nil, p.Error("Expected a string", t)
 	}
-	str := strconv.Quote(t.Val)
-	replaced := strings.Replace(str, `\\`, "\\", -1)
+	replaced := strconv.Quote(t.Val)
+	replaced = strings.Replace(replaced, `\\n`, `\n`, -1)
+	replaced = strings.Replace(replaced, `\\t`, `\t`, -1)
 	newstr, err := strconv.Unquote(replaced)
 	if err != nil {
-		return nil, p.Error(err.Error(), t)
+		// this scenario can happen if there are invalid escape sequences.
+		// that's why we whitelist the allowed escape sequences above
+		log.Errorf("unable to parse string `%v` -> ignored %v", replaced, err)
+		newstr = t.Val // we fall back to the original string
 	}
 	sr := &nodes.String{
 		Location: t,
 		Val:      newstr,
 	}
-	return sr, nil
+	return p.parseOpsOn(sr)
 }
 
 func (p *Parser) parseCollection() (nodes.Expression, error) {
@@ -246,10 +250,16 @@ func (p *Parser) ParseVariable() (nodes.Expression, error) {
 			Val:      false,
 		}
 		return br, nil
+	case "and", "or", "in", "not", "is":
+		return nil, p.Error(fmt.Sprintf("Cannot use reserved name '%v' as variable name.", t.Val), t)
 	}
 
 	var variable nodes.Node = &nodes.Name{t}
 
+	return p.parseOpsOn(variable)
+}
+
+func (p *Parser) parseOpsOn(variable nodes.Expression) (nodes.Expression, error) {
 	for !p.Stream.EOF() {
 		if dot := p.Match(tokens.Dot); dot != nil {
 			getattr := &nodes.Getattr{
@@ -280,16 +290,45 @@ func (p *Parser) ParseVariable() (nodes.Expression, error) {
 			if argErr != nil {
 				return nil, argErr
 			}
-			getitem := &nodes.Getitem{
-				Location: bracket,
-				Node:     variable,
-				Arg:      &arg,
-				Index:    0,
-			}
 
-			variable = getitem
-			if p.Match(tokens.Rbracket) == nil {
-				return nil, p.Error("Unbalanced bracket", bracket)
+			if p.Match(tokens.Colon) != nil {
+				if p.Match(tokens.Rbracket) == nil {
+					stop, stopErr := p.ParseExpressionWithInlineIfs()
+					if stopErr != nil {
+						return nil, stopErr
+					}
+
+					getitem := &nodes.Getitemrange{
+						Location: bracket,
+						Node:     variable,
+						Start:    &arg,
+						Stop:     &stop,
+					}
+					variable = getitem
+
+					if p.Match(tokens.Rbracket) == nil {
+						return nil, p.Error("Unbalanced bracket", bracket)
+					}
+				} else {
+					getitem := &nodes.Getitemrange{
+						Location: bracket,
+						Node:     variable,
+						Start:    &arg,
+						Stop:     nil,
+					}
+					variable = getitem
+				}
+			} else {
+				getitem := &nodes.Getitem{
+					Location: bracket,
+					Node:     variable,
+					Arg:      &arg,
+				}
+				variable = getitem
+
+				if p.Match(tokens.Rbracket) == nil {
+					return nil, p.Error("Unbalanced bracket", bracket)
+				}
 			}
 			continue
 
@@ -363,6 +402,12 @@ func (p *Parser) ParseVariableOrLiteral() (nodes.Expression, error) {
 
 	case tokens.Name:
 		return p.ParseVariable()
+
+	case tokens.Mul:
+		return p.parseVarargs()
+
+	case tokens.Pow:
+		return p.parseKwargs()
 
 	default:
 		return nil, p.Error("Expected either a number, string, keyword or identifier.", t)

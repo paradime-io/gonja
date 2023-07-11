@@ -24,8 +24,13 @@ type Value struct {
 // through a Context or within filter functions.
 //
 // Example:
-//     AsValue("my string")
+//
+//	AsValue("my string")
 func AsValue(i interface{}) *Value {
+	if value, isValue := i.(*Value); isValue {
+		return value
+	}
+
 	return &Value{
 		Val: reflect.ValueOf(i),
 	}
@@ -82,7 +87,24 @@ func (v *Value) IsNumber() bool {
 }
 
 func (v *Value) IsCallable() bool {
-	return v.getResolvedValue().Kind() == reflect.Func
+	if v.getResolvedValue().Kind() == reflect.Func {
+		return true
+	} else if v.getResolvedValue().Kind() == reflect.Struct {
+		Call := v.Val.MethodByName("Call")
+		return Call.IsValid() && Call.Kind() == reflect.Func
+	} else {
+		return false
+	}
+}
+func (v *Value) Callable() reflect.Value {
+	if v.getResolvedValue().Kind() == reflect.Func {
+		return v.Val
+	} else if v.getResolvedValue().Kind() == reflect.Struct {
+		Call := v.Val.MethodByName("Call")
+		return Call
+	} else {
+		return reflect.Value{}
+	}
 }
 
 func (v *Value) IsList() bool {
@@ -104,10 +126,18 @@ func (v *Value) IsNil() bool {
 	return !v.getResolvedValue().IsValid()
 }
 
+// IsError detects if an object is an error. It does it by detecting if it fulfills
+// the error interface. However Value is also implementing that interface, so we have
+// to be careful to mistake a general Value for an error.
 func (v *Value) IsError() bool {
 	if v.IsNil() || !v.getResolvedValue().CanInterface() {
 		return false
 	}
+
+	if maybeValue, isValue := v.Interface().(*Value); isValue {
+		return maybeValue.IsError()
+	}
+
 	_, ok := v.Interface().(error)
 	return ok
 }
@@ -123,12 +153,12 @@ func (v *Value) Error() string {
 // of type string, gonja tries to convert it. Currently the following
 // types for underlying values are supported:
 //
-//     1. string
-//     2. int/uint (any size)
-//     3. float (any precision)
-//     4. bool
-//     5. time.Time
-//     6. String() will be called on the underlying value if provided
+//  1. string
+//  2. int/uint (any size)
+//  3. float (any precision)
+//  4. bool
+//  5. time.Time
+//  6. String() will be called on the underlying value if provided
 //
 // NIL values will lead to an empty string. Unsupported types are leading
 // to their respective type name.
@@ -139,6 +169,12 @@ func (v *Value) String() string {
 	resolved := v.getResolvedValue()
 
 	switch resolved.Kind() {
+	case reflect.Interface:
+		if resolved.CanInterface() {
+			if asValue, isValue := resolved.Interface().(*Value); isValue {
+				return asValue.String()
+			}
+		}
 	case reflect.String:
 		return resolved.String()
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -189,13 +225,21 @@ func (v *Value) String() string {
 				keyLabel = fmt.Sprintf(`'%s'`, keyLabel)
 			}
 
-			value := resolved.MapIndex(key)
-			// Check whether this is an interface and resolve it where required
-			for value.Kind() == reflect.Interface {
-				value = reflect.ValueOf(value.Interface())
+			// convert it to a Value object so that we can re-use this method
+			value := &Value{
+				Val:  resolved.MapIndex(key),
+				Safe: false,
+			}
+			if key.String() == "gonjaSerialisedDict" {
+				return value.String()
+			}
+
+			// Check whether this is an interface and resolve it where possible
+			if iVal := value.Interface(); iVal != nil {
+				value = AsValue(iVal)
 			}
 			valueLabel := value.String()
-			if value.Kind() == reflect.String {
+			if value.Val.Kind() == reflect.String {
 				valueLabel = fmt.Sprintf(`'%s'`, valueLabel)
 			}
 			pair := fmt.Sprintf(`%s: %s`, keyLabel, valueLabel)
@@ -279,12 +323,12 @@ func (v *Value) Bool() bool {
 //
 // Returns TRUE in one the following cases:
 //
-//     * int != 0
-//     * uint != 0
-//     * float != 0.0
-//     * len(array/chan/map/slice/string) > 0
-//     * bool == true
-//     * underlying value is a struct
+//   - int != 0
+//   - uint != 0
+//   - float != 0.0
+//   - len(array/chan/map/slice/string) > 0
+//   - bool == true
+//   - underlying value is a struct
 //
 // Otherwise returns always FALSE.
 func (v *Value) IsTrue() bool {
@@ -292,6 +336,8 @@ func (v *Value) IsTrue() bool {
 		return false
 	}
 	switch v.getResolvedValue().Kind() {
+	case reflect.Invalid:
+		return false
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return v.getResolvedValue().Int() != 0
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -315,9 +361,12 @@ func (v *Value) IsTrue() bool {
 // return_value.IsTrue() afterwards.
 //
 // Example:
-//     AsValue(1).Negate().IsTrue() == false
+//
+//	AsValue(1).Negate().IsTrue() == false
 func (v *Value) Negate() *Value {
 	switch v.getResolvedValue().Kind() {
+	case reflect.Invalid:
+		return AsValue(true)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		if v.Integer() != 0 {
@@ -345,12 +394,23 @@ func (v *Value) Negate() *Value {
 // Otherwise it will return 0.
 func (v *Value) Len() int {
 	switch v.getResolvedValue().Kind() {
+	case reflect.Invalid:
+		return 0
 	case reflect.Array, reflect.Chan, reflect.Map, reflect.Slice:
 		return v.getResolvedValue().Len()
 	case reflect.String:
 		runes := []rune(v.getResolvedValue().String())
 		return len(runes)
 	default:
+		// delegate to a Len method of the object
+		if v.Val.IsValid() {
+			if maybeFn := v.Val.MethodByName("Len"); maybeFn.IsValid() && maybeFn.CanInterface() {
+				if fn, isFunc := maybeFn.Interface().(func() int); isFunc {
+					return fn()
+				}
+			}
+		}
+
 		log.Errorf("Value.Len() not available for type: %s\n", v.getResolvedValue().Kind().String())
 		return 0
 	}
@@ -399,10 +459,13 @@ func (v *Value) Index(i int) *Value {
 // whether a struct contains of a specific field or a map contains a specific key).
 //
 // Example:
-//     AsValue("Hello, World!").Contains(AsValue("World")) == true
+//
+//	AsValue("Hello, World!").Contains(AsValue("World")) == true
 func (v *Value) Contains(other *Value) bool {
 	resolved := v.getResolvedValue()
 	switch resolved.Kind() {
+	case reflect.Invalid:
+		return false
 	case reflect.Struct:
 		if dict, ok := resolved.Interface().(Dict); ok {
 			return dict.Keys().Contains(other)
@@ -457,10 +520,10 @@ func (v *Value) CanSlice() bool {
 // Iterate iterates over a map, array, slice or a string. It calls the
 // function's first argument for every value with the following arguments:
 //
-//     idx      current 0-index
-//     count    total amount of items
-//     key      *Value for the key or item
-//     value    *Value (only for maps, the respective value for a specific key)
+//	idx      current 0-index
+//	count    total amount of items
+//	key      *Value for the key or item
+//	value    *Value (only for maps, the respective value for a specific key)
 //
 // If the underlying value has no items or is not one of the types above,
 // the empty function (function's second argument) will be called.
@@ -474,6 +537,9 @@ func (v *Value) Iterate(fn func(idx, count int, key, value *Value) bool, empty f
 func (v *Value) IterateOrder(fn func(idx, count int, key, value *Value) bool, empty func(), reverse bool, sorted bool, caseSensitive bool) {
 	resolved := v.getResolvedValue()
 	switch resolved.Kind() {
+	case reflect.Invalid:
+		empty()
+		return
 	case reflect.Map:
 		keys := v.Keys()
 		if sorted {
@@ -600,6 +666,8 @@ func (v *Value) IterateOrder(fn func(idx, count int, key, value *Value) bool, em
 	case reflect.Struct:
 		if resolved.Type() != TypeDict {
 			log.Errorf("Value.Iterate() not available for type: %s\n", resolved.Kind().String())
+			empty()
+			return
 		}
 		dict := resolved.Interface().(Dict)
 		keys := dict.Keys()
@@ -636,9 +704,23 @@ func (v *Value) IterateOrder(fn func(idx, count int, key, value *Value) bool, em
 }
 
 // Interface gives you access to the underlying value.
+// The problem we work around here is that Interface() panics for integers in some situations.
 func (v *Value) Interface() interface{} {
 	if v.Val.IsValid() {
-		return v.Val.Interface()
+		switch {
+		case v.Val.CanInterface():
+			return v.Val.Interface()
+		case v.IsString():
+			return v.String()
+		case v.IsBool():
+			return v.Bool()
+		case v.IsInteger():
+			return v.Integer()
+		case v.IsFloat():
+			return v.Float()
+		default:
+			log.Errorf("Value.Interface() is forbidden: v.Val=%s (kind: %v type: %T)\n", v.Val, v.Val.Kind(), v.Val)
+		}
 	}
 	return nil
 }
@@ -649,7 +731,10 @@ func (v *Value) EqualValueTo(other *Value) bool {
 	if v.IsInteger() && other.IsInteger() {
 		return v.Integer() == other.Integer()
 	}
-	return v.Interface() == other.Interface()
+	if v.IsNil() && other.IsNil() {
+		return true
+	}
+	return reflect.DeepEqual(v.Interface(), other.Interface())
 }
 
 func (v *Value) Keys() ValuesList {
@@ -750,26 +835,97 @@ func (v *Value) Getattr(name string) (*Value, bool) {
 	if v.IsNil() {
 		return AsValue(errors.New(`Can't use getattr on None`)), false
 	}
-	var val reflect.Value
-	val = v.Val.MethodByName(name)
-	if val.IsValid() {
-		return ToValue(val), true
-	}
+
+	var resolvedVal reflect.Value
 	if v.Val.Kind() == reflect.Ptr {
-		val = v.Val.Elem()
-		if !val.IsValid() {
+		resolvedVal = v.Val.Elem()
+		if !resolvedVal.IsValid() {
 			// Value is not valid (anymore)
 			return AsValue(nil), false
 		}
 	} else {
-		val = v.Val
+		resolvedVal = v.Val
 	}
 
-	if val.Kind() == reflect.Struct {
-		field := val.FieldByName(name)
+	switch resolvedVal.Kind() {
+	case reflect.Struct:
+		field := resolvedVal.FieldByName(name)
 		if field.IsValid() {
 			return ToValue(field), true
 		}
+
+	case reflect.Map:
+		// Implementing some map functions in here. This is not ideal - better would
+		// be to recreate the Python type system explicitly instead of layering it on
+		// top of the golang type system.
+		switch name {
+		case "get":
+			return AsValue(func(key *Value, defaultValues ...*Value) (*Value, error) {
+				valueForKey, keyFound := v.Get(key.String())
+				if keyFound {
+					return AsValue(valueForKey), nil
+				} else if len(defaultValues) > 0 {
+					return defaultValues[0], nil
+				} else {
+					return nil, fmt.Errorf("cannot find key '%s' in the map", key.String())
+				}
+			}), true
+		case "update":
+			return AsValue(func(d *Value) error {
+				for _, key := range d.Val.MapKeys() {
+					if err := d.Set(key.String(), AsValue(v.Val.MapIndex(key))); err != nil {
+						return err
+					}
+				}
+				return nil
+			}), true
+		case "items":
+			return AsValue(func() (*Value, error) {
+				items := ValuesList{}
+				for _, key := range v.Val.MapKeys() {
+					pairAsList := ValuesList{}
+					pairAsList.Append(AsValue(key))
+					pairAsList.Append(AsValue(v.Val.MapIndex(key)))
+					items.Append(AsValue(&pairAsList))
+				}
+				sort.Sort(items)
+				return AsValue(&items), nil
+			}), true
+		}
+
+	case reflect.String:
+		// Implementing some string functions in here. This is not ideal - better would
+		// be to recreate the Python type system explicitly instead of layering it on
+		// top of the golang type system.
+		switch name {
+		case "endswith":
+			return AsValue(func(suffix *Value) (*Value, error) {
+				return AsValue(strings.HasSuffix(v.String(), suffix.String())), nil
+			}), true
+		case "startswith":
+			return AsValue(func(prefix *Value) (*Value, error) {
+				return AsValue(strings.HasPrefix(v.String(), prefix.String())), nil
+			}), true
+		case "lower":
+			return AsValue(func(prefix *Value) (*Value, error) {
+				return AsValue(strings.ToLower(v.String())), nil
+			}), true
+		case "upper":
+			return AsValue(func(prefix *Value) (*Value, error) {
+				return AsValue(strings.ToUpper(v.String())), nil
+			}), true
+		}
+	}
+
+	var maybeMethod reflect.Value
+	maybeMethod = v.Val.MethodByName(name)
+	if maybeMethod.IsValid() {
+		return ToValue(maybeMethod), true
+	}
+
+	maybeMethod = v.Val.MethodByName(strings.Title(name))
+	if maybeMethod.IsValid() {
+		return ToValue(maybeMethod), true
 	}
 
 	return AsValue(nil), false // Attr not found
@@ -871,6 +1027,11 @@ func (vl ValuesList) Len() int {
 	return len(vl)
 }
 
+func (vl *ValuesList) Append(element *Value) *ValuesList {
+	*vl = append(*vl, element)
+	return vl
+}
+
 func (vl ValuesList) Less(i, j int) bool {
 	vi := vl[i]
 	vj := vl[j]
@@ -948,7 +1109,11 @@ func (d *Dict) String() string {
 	pairs := []string{}
 	for _, pair := range d.Pairs {
 		pairs = append(pairs, pair.String())
+		if pair.Key.String() == "gonjaSerialisedDict" {
+			return pair.Value.String()
+		}
 	}
+	sort.Strings(pairs)
 	return fmt.Sprintf(`{%s}`, strings.Join(pairs, ", "))
 }
 
@@ -960,13 +1125,47 @@ func (d *Dict) Keys() ValuesList {
 	return keys
 }
 
-func (d *Dict) Get(key *Value) *Value {
+func (d *Dict) Get(key *Value, defaultValues ...*Value) *Value {
 	for _, pair := range d.Pairs {
 		if pair.Key.EqualValueTo(key) {
 			return pair.Value
 		}
 	}
-	return AsValue(nil)
+	if len(defaultValues) > 0 {
+		return defaultValues[0]
+	} else {
+		return AsValue(nil)
+	}
+}
+
+func (d *Dict) Set(key *Value, value *Value) {
+	d.Pairs = append(d.Pairs, &Pair{
+		Key:   key,
+		Value: value,
+	})
+}
+
+func (d *Dict) Items() *ValuesList {
+	items := ValuesList{}
+	for _, pair := range d.Pairs {
+		pairAsList := ValuesList{}
+		pairAsList.Append(pair.Key)
+		pairAsList.Append(pair.Value)
+		items.Append(AsValue(&pairAsList))
+	}
+	sort.Sort(items)
+	return &items
+}
+func (d *Dict) Update(v *Value) error {
+	v.Iterate(func(idx, count int, key, value *Value) bool {
+		d.Set(key, value)
+		return true
+	}, func() {})
+	return nil
+}
+
+func (d *Dict) Len() int {
+	return len(d.Pairs)
 }
 
 var TypeDict = reflect.TypeOf(Dict{})

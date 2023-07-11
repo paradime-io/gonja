@@ -52,10 +52,16 @@ func (e *Evaluator) Eval(node nodes.Expression) *Value {
 		return e.evalPair(n)
 	case *nodes.Name:
 		return e.evalName(n)
+	case *nodes.Varargs:
+		return e.evalName(&n.Name)
+	case *nodes.Kwargs:
+		return e.evalName(&n.Name)
 	case *nodes.Call:
 		return e.evalCall(n)
 	case *nodes.Getitem:
 		return e.evalGetitem(n)
+	case *nodes.Getitemrange:
+		return e.evalGetitemrange(n)
 	case *nodes.Getattr:
 		return e.evalGetattr(n)
 	case *nodes.Negation:
@@ -94,7 +100,7 @@ func (e *Evaluator) evalBinaryExpression(node *nodes.BinaryExpression) *Value {
 	}
 
 	switch node.Operator.Token.Val {
-	// These operators allow lazy right expression evluation
+	// These operators allow lazy right expression evaluation
 	case "and", "or":
 	default:
 		right = e.Eval(node.Right)
@@ -121,6 +127,10 @@ func (e *Evaluator) evalBinaryExpression(node *nodes.BinaryExpression) *Value {
 			}
 
 			return v
+		}
+		if left.IsString() || right.IsString() {
+			// Result will be a string
+			return AsValue(left.String() + right.String())
 		}
 		if left.IsFloat() || right.IsFloat() {
 			// Result will be a float
@@ -237,7 +247,7 @@ func (e *Evaluator) evalList(node *nodes.List) *Value {
 		value := e.Eval(val)
 		values = append(values, value)
 	}
-	return AsValue(values)
+	return AsValue(&values)
 }
 
 func (e *Evaluator) evalTuple(node *nodes.Tuple) *Value {
@@ -246,7 +256,7 @@ func (e *Evaluator) evalTuple(node *nodes.Tuple) *Value {
 		value := e.Eval(val)
 		values = append(values, value)
 	}
-	return AsValue(values)
+	return AsValue(&values)
 }
 
 func (e *Evaluator) evalDict(node *nodes.Dict) *Value {
@@ -285,31 +295,87 @@ func (e *Evaluator) evalGetitem(node *nodes.Getitem) *Value {
 	}
 
 	if node.Arg != nil {
-		key := e.Eval(*node.Arg).String()
-		item, found := value.Getitem(key)
+		key := e.Eval(*node.Arg)
+		item, found := value.Getitem(key.Interface())
 		if !found {
-			item, found = value.Getattr(key)
+			item, found = value.Getattr(key.String())
 		}
 		if !found {
 			if item.IsError() {
-				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node))
+				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node.String()))
 			}
-			return AsValue(nil)
-			// return AsValue(errors.Errorf(`Unable to evaluate %s: item '%s' not found`, node, node.Arg))
+			return AsValue(errors.Errorf(`Unable to evaluate %s: item '%s' not found`, node.String(), (*node.Arg).String()))
 		}
 		return item
 	} else {
-		item, found := value.Getitem(node.Index)
-		if !found {
-			if item.IsError() {
-				return AsValue(errors.Wrapf(item, `Unable to evaluate %s`, node))
-			}
-			return AsValue(nil)
-			// return AsValue(errors.Errorf(`Unable to evaluate %s: item %d not found`, node, node.Index))
-		}
-		return item
+		return AsValue(errors.Errorf(`No Arg was given`))
 	}
-	return AsValue(errors.Errorf(`Unable to evaluate %s`, node))
+}
+func (e *Evaluator) evalGetitemrange(node *nodes.Getitemrange) *Value {
+	value := e.Eval(node.Node)
+	if value.IsError() {
+		return AsValue(errors.Wrapf(value, `Unable to evaluate target %s`, node.Node))
+	}
+
+	valueLength := value.Len()
+
+	start := 0
+	stop := valueLength
+
+	if node.Start != nil {
+		startKey := e.Eval(*node.Start)
+		if !startKey.IsInteger() {
+			return AsValue(errors.Errorf(`Start of the range '%s' needs to be an integer`, startKey.String()))
+		}
+		start = startKey.Integer()
+	}
+
+	if node.Stop != nil {
+		stopKey := e.Eval(*node.Stop)
+		if !stopKey.IsInteger() {
+			return AsValue(errors.Errorf(`End of the range '%s' needs to be an integer`, stopKey.String()))
+		}
+		stop = stopKey.Integer()
+	}
+
+	// make sure that we support negative indices in the correct way
+	if start < 0 {
+		start = valueLength + start
+	}
+	if stop < 0 {
+		stop = valueLength + stop
+	}
+
+	// it's important that we make sure that the range in which start + stop lie
+	// corresponds to the range of indices value has. Otherwise we risk panics.
+	if start < 0 {
+		start = 0
+	}
+	if start > valueLength {
+		start = valueLength
+	}
+	if stop < 0 {
+		stop = 0
+	}
+	if stop > valueLength {
+		stop = valueLength
+	}
+
+	if value.IsString() {
+		valueAsString := value.String()
+		substring := valueAsString[start:stop]
+		return AsValue(substring)
+	} else {
+		values := ValuesList{}
+		for i := start; i < stop; i++ {
+			item, found := value.Getitem(i)
+			if found {
+				values = append(values, item)
+			}
+		}
+		return AsValue(&values)
+	}
+
 }
 
 func (e *Evaluator) evalGetattr(node *nodes.Getattr) *Value {
@@ -351,18 +417,19 @@ func (e *Evaluator) evalCall(node *nodes.Call) *Value {
 		return AsValue(errors.Wrapf(fn, `Unable to evaluate function "%s"`, node.Func))
 	}
 
-	if !fn.IsCallable() {
-		return AsValue(errors.Errorf(`%s is not callable`, node.Func))
+	if !fn.Val.IsValid() {
+		return AsValue(errors.Errorf(`function %s was not found`, node.Func))
+	} else if !fn.IsCallable() {
+		return AsValue(errors.Errorf(`function %s is not callable`, node.Func))
 	}
-
-	// current := reflect.ValueOf(fn) // Get the initial value
 
 	var current reflect.Value
 	var isSafe bool
 
 	var params []reflect.Value
 	var err error
-	t := fn.Val.Type()
+	callable := fn.Callable()
+	t := callable.Type()
 
 	if t.NumIn() == 1 && t.In(0) == reflect.TypeOf(&VarArgs{}) {
 		params, err = e.evalVarArgs(node)
@@ -374,7 +441,7 @@ func (e *Evaluator) evalCall(node *nodes.Call) *Value {
 	}
 
 	// Call it and get first return parameter back
-	values := fn.Val.Call(params)
+	values := callable.Call(params)
 	rv := values[0]
 	if t.NumOut() == 2 {
 		e := values[1].Interface()
@@ -553,7 +620,27 @@ func (e *Evaluator) evalVarArgs(node *nodes.Call) ([]reflect.Value, error) {
 		if value.IsError() {
 			return nil, value
 		}
-		params.Args = append(params.Args, value)
+		if _, isVarargs := param.(*nodes.Varargs); isVarargs {
+			if value.CanSlice() {
+				value.Iterate(func(idx, count int, key, value *Value) bool {
+					params.Args = append(params.Args, key)
+					return true
+				}, func() {})
+			} else {
+				return nil, errors.Errorf("Cannot iterate over %v", param.String())
+			}
+		} else if _, isKwargs := param.(*nodes.Kwargs); isKwargs {
+			if value.IsDict() {
+				value.Iterate(func(idx, count int, innerKey, value *Value) bool {
+					params.KwArgs[innerKey.String()] = value
+					return true
+				}, func() {})
+			} else {
+				return nil, errors.Errorf("Cannot iterate over %v", param.String())
+			}
+		} else {
+			params.Args = append(params.Args, value)
+		}
 	}
 
 	for key, param := range node.Kwargs {
@@ -561,6 +648,7 @@ func (e *Evaluator) evalVarArgs(node *nodes.Call) ([]reflect.Value, error) {
 		if value.IsError() {
 			return nil, value
 		}
+
 		params.KwArgs[key] = value
 	}
 	// va := AsValue(VarArgs{})

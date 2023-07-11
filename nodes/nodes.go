@@ -218,6 +218,26 @@ func (n *Name) String() string {
 	return fmt.Sprintf("Name(Val=%s Line=%d Col=%d)", t.Val, t.Line, t.Col)
 }
 
+type Varargs struct {
+	Name Name
+}
+
+func (v *Varargs) Position() *tokens.Token { return v.Name.Name }
+func (v *Varargs) String() string {
+	t := v.Position()
+	return fmt.Sprintf("Varargs(Val=%s Line=%d Col=%d)", t.Val, t.Line, t.Col)
+}
+
+type Kwargs struct {
+	Name Name
+}
+
+func (k *Kwargs) Position() *tokens.Token { return k.Name.Position() }
+func (k *Kwargs) String() string {
+	t := k.Position()
+	return fmt.Sprintf("Kwargs(Val=%s Line=%d Col=%d)", t.Val, t.Line, t.Col)
+}
+
 type List struct {
 	Location *tokens.Token
 	Val      []Expression
@@ -241,6 +261,7 @@ type Dict struct {
 
 func (d *Dict) Position() *tokens.Token { return d.Token }
 func (d *Dict) String() string          { return d.Token.Val }
+func (d *Dict) Items() string           { return "hey!" }
 
 type Pair struct {
 	Key   Expression
@@ -305,14 +326,13 @@ type Call struct {
 func (c *Call) Position() *tokens.Token { return c.Location }
 func (c *Call) String() string {
 	t := c.Position()
-	return fmt.Sprintf("Call(Args=%s Kwargs=%s Line=%d Col=%d)", c.Args, c.Kwargs, t.Line, t.Col)
+	return fmt.Sprintf("Call(Func=%s Args=%s Kwargs=%s Line=%d Col=%d)", c.Func.String(), c.Args, c.Kwargs, t.Line, t.Col)
 }
 
 type Getitem struct {
 	Location *tokens.Token
 	Node     Node
 	Arg      *Expression
-	Index    int
 }
 
 func (g *Getitem) Position() *tokens.Token { return g.Location }
@@ -322,9 +342,34 @@ func (g *Getitem) String() string {
 	if g.Arg != nil {
 		param = fmt.Sprintf(`Arg=%s`, *g.Arg)
 	} else {
-		param = fmt.Sprintf(`Index=%s`, strconv.Itoa(g.Index))
+		param = `Arg=nil`
 	}
 	return fmt.Sprintf("Getitem(Node=%s %s Line=%d Col=%d)", g.Node, param, t.Line, t.Col)
+}
+
+type Getitemrange struct {
+	Location *tokens.Token
+	Node     Node
+	Start    *Expression
+	Stop     *Expression
+}
+
+func (g *Getitemrange) Position() *tokens.Token { return g.Location }
+func (g *Getitemrange) String() string {
+	t := g.Position()
+	var start string
+	if g.Start != nil {
+		start = fmt.Sprintf(`Start=%s`, *g.Start)
+	} else {
+		start = `Start=nil`
+	}
+	var stop string
+	if g.Stop != nil {
+		stop = fmt.Sprintf(`Stop=%s`, *g.Stop)
+	} else {
+		stop = `Stop=nil`
+	}
+	return fmt.Sprintf("Getitem(Node=%s %s %s Line=%d Col=%d)", g.Node, start, stop, t.Line, t.Col)
 }
 
 type Getattr struct {

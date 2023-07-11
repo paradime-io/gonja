@@ -1,0 +1,9 @@
+the tuple [1] has length: 1
+the tuple [1, 2] has length: 2
+the tuple [1, 2, 3] has length: 3
+the tuple [1, 2, 3, 'a'] has length: 4
+
+the dict {'a': 1} has length: 1
+it has these elements: a -> 1  (1)
+the dict {'a': 1, 'b': 2, 'c': 'd'} has length: 3
+it has these elements: a -> 1  b -> 2  c -> d  (3)
