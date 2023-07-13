@@ -160,9 +160,9 @@ func (p *Parser) parseTuple() (nodes.Expression, error) {
 	}
 
 	if len(list) > 1 || trailingComa {
-		return &nodes.Tuple{t, list}, nil
+		return p.parseOpsOn(&nodes.Tuple{t, list})
 	} else {
-		return expr, nil
+		return p.parseOpsOn(expr)
 	}
 }
 
@@ -260,6 +260,10 @@ func (p *Parser) ParseVariable() (nodes.Expression, error) {
 }
 
 func (p *Parser) parseOpsOn(variable nodes.Expression) (nodes.Expression, error) {
+	log.WithFields(log.Fields{
+		"current": p.Current(),
+	}).Trace("parseOpsOn")
+
 	for !p.Stream.EOF() {
 		if dot := p.Match(tokens.Dot); dot != nil {
 			getattr := &nodes.Getattr{
